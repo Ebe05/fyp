@@ -3,33 +3,142 @@
 import numpy as np
 import pandas as pd
 
+from medical_policy_analytics.config import (
+    DISEASE_SCORE_CUTOFFS,
+    DISEASE_SCORE_FEATURES,
+    DISEASE_SCORE_WEIGHTS,
+)
 
-def calculate_high_risk(df, disease_name, target_col):
-    """Calculate high-risk population based on disease-specific criteria"""
+def _sigmoid(x: pd.Series) -> pd.Series:
+    # Stable sigmoid for pandas/numpy arrays.
+    x = np.clip(x, -50, 50)
+    return 1 / (1 + np.exp(-x))
+
+
+def _build_score_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Create standardized binary features used by disease-specific score configs."""
+    f = pd.DataFrame(index=df.index)
+
+    # Modifiable / intermediate risk proxies
+    f["high_bp"] = (pd.to_numeric(df.get("HighBP"), errors="coerce").fillna(0) >= 1).astype(int)
+    f["high_chol"] = (pd.to_numeric(df.get("HighChol"), errors="coerce").fillna(0) >= 1).astype(int)
+    f["obese"] = (pd.to_numeric(df.get("BMI"), errors="coerce").fillna(0) >= 30).astype(int)
+    f["smoker"] = (pd.to_numeric(df.get("Smoker"), errors="coerce").fillna(0) >= 1).astype(int)
+    f["inactive"] = (pd.to_numeric(df.get("PhysActivity"), errors="coerce").fillna(0) == 0).astype(int)
+    f["poor_diet"] = (
+        (pd.to_numeric(df.get("Fruits"), errors="coerce").fillna(0) == 0)
+        & (pd.to_numeric(df.get("Veggies"), errors="coerce").fillna(0) == 0)
+    ).astype(int)
+    f["heavy_alcohol"] = (pd.to_numeric(df.get("HvyAlcoholConsump"), errors="coerce").fillna(0) >= 1).astype(int)
+    f["dysglycemia"] = (pd.to_numeric(df.get("Diabetes_012"), errors="coerce").fillna(0) > 0).astype(int)
+
+    # Non-modifiable / context features (for targeting and baseline adjustment)
+    # Age 9 corresponds to 60–64 in BRFSS encoding; used as a 60+ proxy across the app.
+    f["elderly_60plus"] = (pd.to_numeric(df.get("Age"), errors="coerce").fillna(0) >= 9).astype(int)
+    f["male"] = (pd.to_numeric(df.get("Sex"), errors="coerce").fillna(0) == 1).astype(int)
+    f["low_income"] = (pd.to_numeric(df.get("Income"), errors="coerce").fillna(99) <= 4).astype(int)
+    f["low_education"] = (pd.to_numeric(df.get("Education"), errors="coerce").fillna(99) <= 3).astype(int)
+
+    # Ensure all expected columns exist
+    for col in DISEASE_SCORE_FEATURES:
+        if col not in f.columns:
+            f[col] = 0
+
+    return f[DISEASE_SCORE_FEATURES]
+
+
+def _get_outcome_mask(df: pd.DataFrame, disease_name: str, target_col: str) -> pd.Series:
+    """Binary outcome definition used for calibration and primary/secondary mode filters."""
     if disease_name == "Diabetes":
-        # Prediabetic/Diabetic + (HighBP OR Obese OR Smoker OR Inactive OR HighChol OR Poor Diet OR Heavy Alcohol)
-        poor_diet = (df['Fruits'] == 0) & (df['Veggies'] == 0)
-        return ((df['Diabetes_012'] > 0) &
-                ((df['HighBP'] >= 1) | (df['BMI'] >= 30) | (df['Smoker'] == 1) |
-                 (df['PhysActivity'] == 0) | (df['HighChol'] >= 1) | poor_diet | (df['HvyAlcoholConsump'] == 1)))
-    elif disease_name == "Heart Disease":
-        # Heart Disease + (HighBP OR Obese OR Smoker OR HighChol OR Inactive OR Poor Diet OR Heavy Alcohol)
-        poor_diet = (df['Fruits'] == 0) & (df['Veggies'] == 0)
-        return ((df[target_col] == 1) &
-                ((df['HighBP'] >= 1) | (df['BMI'] >= 30) | (df['Smoker'] == 1) |
-                 (df['HighChol'] >= 1) | (df['PhysActivity'] == 0) | poor_diet | (df['HvyAlcoholConsump'] == 1)))
-    elif disease_name == "Hypertension":
-        # HighBP + (HighChol OR Obese OR Smoker OR Inactive OR Heavy Alcohol)
-        return ((df[target_col] == 1) &
-                ((df['HighChol'] >= 1) | (df['BMI'] >= 30) | (df['Smoker'] == 1) |
-                 (df['PhysActivity'] == 0) | (df['HvyAlcoholConsump'] == 1)))
-    elif disease_name == "Stroke":
-        # Stroke + (HighBP OR Smoker OR HighChol OR Elderly OR Inactive)
-        return ((df[target_col] == 1) &
-                ((df['HighBP'] >= 1) | (df['Age'] >= 9) | (df['Smoker'] == 1) |
-                 (df['HighChol'] >= 1) | (df['PhysActivity'] == 0)))
+        y = pd.to_numeric(df.get("Diabetes_012"), errors="coerce").fillna(0) > 0
+        return y.astype(int)
+
+    y = pd.to_numeric(df.get(target_col), errors="coerce").fillna(0) >= 1
+    return y.astype(int)
+
+
+def _calibrate_intercept(z_no_intercept: pd.Series, target_prevalence: float) -> float:
+    """
+    Calibrate intercept b0 so mean(sigmoid(b0 + z)) matches target_prevalence.
+    This is a 1D, deterministic calibration (not ML training).
+    """
+    if target_prevalence <= 0:
+        return -20.0
+    if target_prevalence >= 1:
+        return 20.0
+
+    lo, hi = -15.0, 15.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        pred_mean = float(_sigmoid(z_no_intercept + mid).mean())
+        if pred_mean < target_prevalence:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2
+
+
+def calculate_disease_risk_score(
+    df: pd.DataFrame,
+    disease_name: str,
+    target_col: str,
+    *,
+    calibrate_intercept: bool = True,
+) -> pd.Series:
+    """
+    Disease-specific risk profile score (0–100).
+
+    - Uses literature-informed priors (weights) + optional intercept calibration
+      to match observed prevalence in the current dataframe slice.
+    - Returns a score interpretable as a calibrated probability proxy *within this dataset slice*.
+    """
+    weights = DISEASE_SCORE_WEIGHTS.get(disease_name)
+    if not weights:
+        return pd.Series(0.0, index=df.index, name="risk_score")
+
+    X = _build_score_features(df)
+    w = pd.Series({k: float(weights.get(k, 0.0)) for k in X.columns})
+
+    z = X.mul(w, axis=1).sum(axis=1).astype(float)
+    if calibrate_intercept:
+        y = _get_outcome_mask(df, disease_name, target_col)
+        b0 = _calibrate_intercept(z, float(y.mean()))
     else:
-        return pd.Series([False] * len(df))
+        b0 = 0.0
+
+    score = (_sigmoid(z + b0) * 100.0).astype(float)
+    score.name = f"{disease_name}_risk_score"
+    return score
+
+
+def calculate_high_risk(
+    df: pd.DataFrame,
+    disease_name: str,
+    target_col: str,
+    *,
+    mode: str = "secondary",
+    cutoff=None,
+) -> pd.Series:
+    """
+    Calculate a high-risk boolean mask using disease-specific scoring.
+
+    Modes:
+    - secondary (default): high risk among those WITH the disease (y==1) and score>=cutoff
+    - primary: high risk among those WITHOUT the disease (y==0) and score>=cutoff
+    """
+    if cutoff is None:
+        cutoff = float(DISEASE_SCORE_CUTOFFS.get(disease_name, 10))
+
+    y = _get_outcome_mask(df, disease_name, target_col)
+    score = calculate_disease_risk_score(df, disease_name, target_col, calibrate_intercept=True)
+
+    if mode == "primary":
+        mask = (y == 0) & (score >= cutoff)
+    else:
+        # Default to secondary prevention targeting to preserve previous semantics.
+        mask = (y == 1) & (score >= cutoff)
+
+    return mask.reindex(df.index).fillna(False).astype(bool)
 
 
 def simulate_combined_intervention(df, disease_name, target_col, high_risk_baseline, interventions):

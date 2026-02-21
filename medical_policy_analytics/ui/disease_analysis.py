@@ -4,8 +4,12 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from medical_policy_analytics.analytics.risk import calculate_high_risk, simulate_combined_intervention
-from medical_policy_analytics.config import DISEASE_CONFIG
+from medical_policy_analytics.analytics.risk import (
+    calculate_disease_risk_score,
+    calculate_high_risk,
+    simulate_combined_intervention,
+)
+from medical_policy_analytics.config import DISEASE_CONFIG, DISEASE_SCORE_CUTOFFS
 
 
 def render_disease_analysis_tab(df):
@@ -42,6 +46,11 @@ def render_disease_analysis_tab(df):
 
     filtered_df['Disease_Status'] = filtered_df[target_col].map(disease_info["labels"])
 
+    # Disease-specific scoring (0-100) with fixed high-risk cutoff
+    cutoff = float(DISEASE_SCORE_CUTOFFS.get(selected_disease, disease_info["risk_threshold"]))
+    filtered_df["disease_risk_score"] = calculate_disease_risk_score(
+        filtered_df, selected_disease, target_col, calibrate_intercept=True
+    )
     high_risk_condition = calculate_high_risk(filtered_df, selected_disease, target_col)
     high_risk_count = high_risk_condition.sum()
     total_count = len(filtered_df)
@@ -57,6 +66,11 @@ def render_disease_analysis_tab(df):
         st.metric("Prevalence Rate", f"{prevalence:.1f}%")
     with col4:
         st.metric("High-Risk Individuals", f"{high_risk_count:,}", delta_color="inverse")
+
+    st.caption(
+        f"High-risk definition: `mode=secondary` (among cases) and `disease_risk_score ≥ {cutoff:.0f}` "
+        f"(score calibrated to prevalence within the selected population slice)."
+    )
 
     st.markdown("---")
 
