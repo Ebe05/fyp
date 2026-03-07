@@ -9,7 +9,7 @@ from medical_policy_analytics.config import DISEASE_CONFIG, RISK_FACTORS
 
 def render_overview_tab(df):
     """Render the Overview tab with cross-disease EDA"""
-    st.subheader("📊 Cross-Disease Population Overview")
+    st.subheader("Cross-Disease Population Overview")
     st.markdown("A comprehensive analysis of all diseases and their common risk factors.")
 
     # Ensure all required columns are numeric
@@ -27,7 +27,7 @@ def render_overview_tab(df):
     df['Is_Obese'] = (df['BMI'] >= 30).astype(int)
 
     # --- SECTION 1: CORRELATION MATRICES ---
-    st.markdown("### 🔗 Correlation Analysis")
+    st.markdown("### Correlation Analysis")
     st.markdown("Understanding relationships between diseases, health conditions, and lifestyle choices.")
 
     # Define column groups
@@ -46,17 +46,17 @@ def render_overview_tab(df):
     hm_col1, hm_col2, hm_col3 = st.columns(3)
 
     with hm_col1:
-        st.markdown("#### Diseases & Health Factors")
+        # st.markdown("#### Diseases & Health Factors")
         corr1 = df[disease_cols + health_cols].corr(method='spearman').loc[disease_cols, health_cols]
         corr1 = corr1.rename(index=disease_names, columns=health_names)
         fig1 = px.imshow(corr1, text_auto='.2f', aspect='auto',
                          color_continuous_scale='RdBu_r', zmin=-1, zmax=1,
-                         title="Diseases × Health")
+                         title="Diseases × Health Factors")
         fig1.update_layout(height=350)
         st.plotly_chart(fig1, use_container_width=True)
 
     with hm_col2:
-        st.markdown("#### Diseases & Lifestyle")
+        # st.markdown("#### Diseases & Lifestyle")
         corr2 = df[disease_cols + lifestyle_cols].corr(method='spearman').loc[disease_cols, lifestyle_cols]
         corr2 = corr2.rename(index=disease_names, columns=lifestyle_names)
         fig2 = px.imshow(corr2, text_auto='.2f', aspect='auto',
@@ -66,7 +66,7 @@ def render_overview_tab(df):
         st.plotly_chart(fig2, use_container_width=True)
 
     with hm_col3:
-        st.markdown("#### Health & Lifestyle")
+        # st.markdown("#### Health & Lifestyle")
         corr3 = df[health_cols + lifestyle_cols].corr(method='spearman').loc[health_cols, lifestyle_cols]
         corr3 = corr3.rename(index=health_names, columns=lifestyle_names)
         fig3 = px.imshow(corr3, text_auto='.2f', aspect='auto',
@@ -75,11 +75,11 @@ def render_overview_tab(df):
         fig3.update_layout(height=350)
         st.plotly_chart(fig3, use_container_width=True)
 
-    st.caption("📊 Spearman rank correlation: Red = positive correlation (factors increase together), Blue = negative correlation (one increases as other decreases)")
+    st.caption("Spearman rank correlation: Red = positive correlation (factors increase together), Blue = negative correlation (one increases as other decreases)")
     st.markdown("---")
 
     # --- SECTION 2: DISEASE PREVALENCE COMPARISON ---
-    st.markdown("### 📈 Disease Prevalence Comparison")
+    st.markdown("### Disease Prevalence Comparison")
     st.markdown("Which disease affects the largest portion of the population?")
 
     prevalence_data = []
@@ -133,7 +133,7 @@ def render_overview_tab(df):
     st.markdown("---")
 
     # --- SECTION 3: HOW LIFESTYLE CHOICES IMPACT HEALTH CONDITIONS ---
-    st.markdown("### 🏃 How Lifestyle Choices Impact Health Conditions")
+    st.markdown("### How Lifestyle Choices Impact Health Conditions")
     st.markdown("Direct cause-effect relationships: Understanding how daily choices impact your health metrics.")
 
     health_conditions = {
@@ -192,16 +192,16 @@ def render_overview_tab(df):
             max_diff_condition = differences.abs().idxmax()
             max_diff_value = differences[max_diff_condition]
             if max_diff_value > 0:
-                st.caption(f"📊 Biggest impact: {max_diff_value:.1f}% higher {max_diff_condition}")
+                st.caption(f"Biggest impact: {max_diff_value:.1f}% higher {max_diff_condition}")
             else:
-                st.caption(f"📊 Biggest impact: {abs(max_diff_value):.1f}% lower {max_diff_condition}")
+                st.caption(f"Biggest impact: {abs(max_diff_value):.1f}% lower {max_diff_condition}")
 
     st.info("**Takeaway:** These charts show direct lifestyle-health relationships. "
             "The larger the gap between groups, the stronger the impact of that lifestyle choice.")
     st.markdown("---")
 
     # --- SECTION 4: UNIFIED RISK FACTOR ANALYSIS ---
-    st.markdown("### 🎯 Identifying the 'Common Enemy' (Global Risk Factors)")
+    st.markdown("### Identifying the 'Common Enemy' (Global Risk Factors)")
     st.markdown("Which risk factors contribute most to **all** diseases? This helps identify universal intervention targets.")
 
     risk_tab1, risk_tab2 = st.tabs(["Lifestyle Factors", "Health Factors"])

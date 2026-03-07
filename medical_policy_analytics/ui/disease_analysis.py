@@ -44,8 +44,6 @@ def render_disease_analysis_tab(df):
     mask = df['Income'].isin(income_filter)
     filtered_df = df[mask].copy()
 
-    filtered_df['Disease_Status'] = filtered_df[target_col].map(disease_info["labels"])
-
     # Disease-specific scoring (0-100) with fixed high-risk cutoff
     cutoff = float(DISEASE_SCORE_CUTOFFS.get(selected_disease, disease_info["risk_threshold"]))
     filtered_df["disease_risk_score"] = calculate_disease_risk_score(
@@ -54,7 +52,6 @@ def render_disease_analysis_tab(df):
     high_risk_condition = calculate_high_risk(filtered_df, selected_disease, target_col)
     high_risk_count = high_risk_condition.sum()
     total_count = len(filtered_df)
-    risk_percentage = (high_risk_count / total_count) * 100 if total_count > 0 else 0
     prevalence = (filtered_df[target_col] > 0).mean() * 100
 
     col1, col2, col3, col4 = st.columns(4)
@@ -71,38 +68,6 @@ def render_disease_analysis_tab(df):
         f"High-risk definition: `mode=secondary` (among cases) and `disease_risk_score ≥ {cutoff:.0f}` "
         f"(score calibrated to prevalence within the selected population slice)."
     )
-
-    st.markdown("---")
-
-    left_chart, right_chart = st.columns(2)
-    with left_chart:
-        st.subheader(f"{selected_disease} by Income Bracket")
-        fig_income = px.histogram(
-            filtered_df, x="Income", color="Disease_Status",
-            barmode="group",
-            title=f"Income Distribution vs {selected_disease}",
-            color_discrete_sequence=px.colors.qualitative.Safe
-        )
-        st.plotly_chart(fig_income, use_container_width=True)
-
-    with right_chart:
-        st.subheader("BMI Correlation")
-        fig_bmi = px.box(
-            filtered_df, x="Disease_Status", y="BMI",
-            color="Disease_Status",
-            title=f"BMI Distribution: {selected_disease}"
-        )
-        st.plotly_chart(fig_bmi, use_container_width=True)
-
-    st.info("### 🤖 Automated Policy Recommendation")
-    threshold = disease_info["risk_threshold"]
-    if risk_percentage > threshold:
-        st.error(f"**CRITICAL:** {selected_disease} high-risk population is at {risk_percentage:.1f}%. "
-                 f"Recommend immediate intervention programs targeting these income brackets.")
-    elif risk_percentage > threshold * 0.6:
-        st.warning(f"**MODERATE:** Elevated {selected_disease} risk detected. Increase screening programs.")
-    else:
-        st.success(f"**STABLE:** {selected_disease} metrics within acceptable ranges.")
 
     st.markdown("### 🧪 'What-If' Policy Simulation")
     st.markdown("Simulate the combined impact of multiple policy interventions on the high-risk population.")
