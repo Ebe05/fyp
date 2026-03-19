@@ -76,7 +76,7 @@ def render_overview_tab(df):
         st.plotly_chart(fig3, use_container_width=True)
 
     st.caption("Spearman rank correlation: Red = positive correlation (factors increase together), Blue = negative correlation (one increases as other decreases)")
-    st.markdown("---")
+    st.divider()
 
     # --- SECTION 2: DISEASE PREVALENCE COMPARISON ---
     st.markdown("### Disease Prevalence Comparison")
@@ -130,7 +130,7 @@ def render_overview_tab(df):
     most_prevalent = prevalence_df.iloc[-1]
     st.info(f"**Key Finding:** {most_prevalent['Disease']} is the most prevalent condition, "
             f"affecting {most_prevalent['Prevalence (%)']:.1f}% of the population ({most_prevalent['Cases']:,.0f} cases).")
-    st.markdown("---")
+    st.divider()
 
     # --- SECTION 3: HOW LIFESTYLE CHOICES IMPACT HEALTH CONDITIONS ---
     st.markdown("### How Lifestyle Choices Impact Health Conditions")
@@ -198,7 +198,7 @@ def render_overview_tab(df):
 
     st.info("**Takeaway:** These charts show direct lifestyle-health relationships. "
             "The larger the gap between groups, the stronger the impact of that lifestyle choice.")
-    st.markdown("---")
+    st.divider()
 
     # --- SECTION 4: UNIFIED RISK FACTOR ANALYSIS ---
     st.markdown("### Identifying the 'Common Enemy' (Global Risk Factors)")

@@ -14,15 +14,15 @@ from medical_policy_analytics.config import POLICY_DETAILS
 def render_policy_rules_tab(df):
     """Render the Policy Rules tab with Apriori association rule discovery"""
 
-    st.markdown("### 🔍 Policy-Focused Association Rule Discovery")
+    st.markdown("### Policy-Focused Association Rule Discovery")
     st.markdown("Discover actionable patterns: Which interventions can prevent diseases in specific populations?")
 
-    with st.expander("📖 Understanding the Output"):
+    with st.expander("Understanding the Output"):
         st.markdown("""
         **How Rules Are Structured:**
-        - **🎯 Target Audience**: Demographics to focus the policy on (Elderly, Low Income, Male, Low Education)
-        - **💡 Intervention**: Actionable levers that policy can address (Smoking, Exercise, Diet, Obesity, Cholesterol)
-        - **🏥 Prevents**: The disease outcome that can be reduced
+        - **Target Audience**: Demographics to focus the policy on (Elderly, Low Income, Male, Low Education)
+        - **Intervention**: Actionable levers that policy can address (Smoking, Exercise, Diet, Obesity, Cholesterol)
+        - **Prevents**: The disease outcome that can be reduced
 
         **Metrics:**
         - **Support**: How common is this pattern? (e.g., 5% = 5% of population has this combination)
@@ -46,44 +46,44 @@ def render_policy_rules_tab(df):
         min_lift = st.slider("Min Lift", 1.0, 3.0, 1.2, 0.1,
                              help="How much does risk increase vs average?", key="apriori_lift")
 
-    if st.button("🚀 Run Policy Rule Discovery", type="primary", key="run_apriori"):
+    if st.button("Run Policy Rule Discovery", type="primary", key="run_apriori"):
         with st.spinner("Mining association rules..."):
             apriori_df = prepare_apriori_data(df)
             rules = discover_rules(apriori_df, min_support, min_confidence, min_lift)
 
             if len(rules) > 0:
-                st.success(f"✅ Found {len(rules)} actionable policy rules!")
+                st.success(f"Found {len(rules)} actionable policy rules!")
 
-                st.markdown("#### 🏆 Top Policy Recommendations")
+                st.markdown("#### Top Policy Recommendations")
                 for idx, row in rules.head(10).iterrows():
                     policy = format_rule_for_policy(row['antecedents'], row['consequents'])
                     with st.container():
                         col_left, col_right = st.columns([3, 1])
                         with col_left:
-                            st.markdown(f"**🎯 Target Audience:** {policy['audience']}")
-                            st.markdown(f"**💡 Intervention:** {policy['intervention']}")
-                            st.markdown(f"**🏥 Prevents:** {policy['outcome']}")
+                            st.markdown(f"**Target Audience:** {policy['audience']}")
+                            st.markdown(f"**Intervention:** {policy['intervention']}")
+                            st.markdown(f"**Prevents:** {policy['outcome']}")
                         with col_right:
                             st.metric("Lift", f"{row['lift']:.2f}x")
                             st.caption(f"Conf: {row['confidence']:.0%}")
                         st.caption(f"Support: {row['support']:.1%} of population")
-                        with st.expander("📝 View Detailed Policy Recommendations"):
+                        with st.expander("View Detailed Policy Recommendations"):
                             if policy['intervention_list']:
                                 for lever in policy['intervention_list']:
                                     if lever in POLICY_DETAILS:
                                         detail = POLICY_DETAILS[lever]
                                         st.markdown(f"**{detail['title']}**")
                                         st.info(f"**Action:** {detail['action']}")
-                                        st.caption(f"📈 **Expected Impact:** {detail['impact']}")
+                                        st.caption(f"**Expected Impact:** {detail['impact']}")
                                         st.divider()
                                     else:
                                         st.write(f"**{lever}** - Policy recommendation under development.")
                             else:
                                 st.write("General population intervention - no specific lever identified.")
                             st.caption(f"Rule confidence: {row['confidence']:.0%}")
-                        st.markdown("---")
+                        st.divider()
 
-                st.markdown("#### 📋 All Discovered Policy Rules")
+                st.markdown("#### All Discovered Policy Rules")
                 policy_data = []
                 for idx, row in rules.iterrows():
                     policy = format_rule_for_policy(row['antecedents'], row['consequents'])

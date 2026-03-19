@@ -11,12 +11,12 @@ from medical_policy_analytics.config import POLICY_DETAILS
 def render_target_tab(df):
     """Render the Find Your Target tab for risk-based population targeting"""
 
-    st.markdown("### 🎯 Find Your Target Population")
+    st.markdown("### Find Your Target Population")
     st.markdown("Identify high-risk individuals for targeted policy interventions based on a composite risk score.")
 
     df = calculate_risk_score(df)
 
-    st.markdown("#### 📊 Population Risk Score Distribution")
+    st.markdown("#### Population Risk Score Distribution")
     col_hist, col_stats = st.columns([3, 1])
     with col_hist:
         fig_dist = px.histogram(
@@ -34,8 +34,8 @@ def render_target_tab(df):
         st.metric("Std Dev", f"{df['risk_score'].std():.1f}")
         st.metric("Max Score", f"{df['risk_score'].max():.1f}")
 
-    st.markdown("---")
-    st.markdown("#### 🎚️ Set Intervention Threshold")
+    st.divider()
+    st.markdown("#### Set Intervention Threshold")
     st.markdown("Select the risk percentile to define your target group. Higher percentiles = smaller, higher-risk groups.")
 
     threshold_percentile = st.slider(
@@ -61,15 +61,15 @@ def render_target_tab(df):
         fig_gauge.update_traces(textposition='inside', textinfo='percent+label')
         st.plotly_chart(fig_gauge, use_container_width=True)
     with col_info:
-        st.markdown("##### 📋 Target Group Summary")
+        st.markdown("##### Target Group Summary")
         st.metric("Individuals in Target Group", f"{high_risk_count:,}")
         st.metric("Percentage of Population", f"{high_risk_pct:.1f}%")
         st.metric("Minimum Risk Score", f"{threshold_value:.1f}")
         st.metric("Avg Risk Score (Target)", f"{high_risk_df['risk_score'].mean():.1f}")
         st.success(f"**{high_risk_count:,} people ({high_risk_pct:.1f}%)** qualify for intervention based on your threshold.")
 
-    st.markdown("---")
-    st.markdown("#### 👥 Demographic Profile of Target Group")
+    st.divider()
+    st.markdown("#### Demographic Profile of Target Group")
     st.markdown("Understand WHO your high-risk individuals are to design targeted outreach.")
 
     income_labels = {
@@ -133,8 +133,8 @@ def render_target_tab(df):
         )
         st.plotly_chart(fig_gender, use_container_width=True)
 
-    st.markdown("---")
-    st.markdown("#### 💡 Key Insights About Your Target Group")
+    st.divider()
+    st.markdown("#### Key Insights About Your Target Group")
 
     low_income_pct = (high_risk_df['Income'] <= 4).mean() * 100
     elderly_pct = (high_risk_df['Age'] >= 9).mean() * 100
@@ -149,13 +149,13 @@ def render_target_tab(df):
 
     insight_col1, insight_col2 = st.columns(2)
     with insight_col1:
-        st.markdown("##### 📍 Demographics")
+        st.markdown("##### Demographics")
         st.info(f"**{low_income_pct:.0f}%** are in low-income brackets (<$25k)")
         st.info(f"**{elderly_pct:.0f}%** are elderly (60+ years)")
         st.info(f"**{low_edu_pct:.0f}%** have no high school diploma")
         st.info(f"**{male_pct:.0f}%** are male")
     with insight_col2:
-        st.markdown("##### 🎯 Primary Intervention Needs")
+        st.markdown("##### Primary Intervention Needs")
         interventions = [
             (high_bp_pct, "High Blood Pressure", "BP management programs"),
             (obese_pct, "Obesity", "Weight management initiatives"),
@@ -174,8 +174,8 @@ def render_target_tab(df):
         f"Primary intervention: {interventions[0][2]}."
     )
 
-    st.markdown("---")
-    st.markdown("#### 📊 Target Group vs. National Baseline")
+    st.divider()
+    st.markdown("#### Target Group vs. National Baseline")
     st.markdown("Compare disease prevalence in your target group against the general population to quantify the urgency.")
 
     diseases_comparison = {
@@ -215,7 +215,7 @@ def render_target_tab(df):
     fig_comparison.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     st.plotly_chart(fig_comparison, use_container_width=True)
 
-    st.markdown("##### ⚠️ Risk Multipliers (Target vs. National)")
+    st.markdown("##### Risk Multipliers (Target vs. National)")
     mult_cols = st.columns(4)
     for i, (disease, values) in enumerate(diseases_comparison.items()):
         multiplier = values["target"] / values["national"] if values["national"] > 0 else 0
@@ -234,8 +234,8 @@ def render_target_tab(df):
         f"to have these conditions compared to the general population."
     )
 
-    st.markdown("---")
-    st.markdown("#### 📋 Strategic Policy Recommendations")
+    st.divider()
+    st.markdown("#### Strategic Policy Recommendations")
     st.markdown("Based on your target group's profile, here are the prioritized policy interventions:")
 
     lever_prevalence = {
@@ -263,10 +263,10 @@ def render_target_tab(df):
                 with st.expander("View Policy Details"):
                     st.info(f"**Recommended Action:** {detail['action']}")
                     st.success(f"**Expected Impact:** {detail['impact']}")
-            st.markdown("---")
+            st.divider()
 
     top_3_titles = [POLICY_DETAILS[lever]['title'] for lever, _ in sorted_levers[:3]]
-    st.markdown("#### 🚀 Prioritized Action Plan")
+    st.markdown("#### Prioritized Action Plan")
     st.markdown(
         f"For your selected target group of **{high_risk_count:,} individuals**, "
         f"implement the following policies in order of priority:\n\n"

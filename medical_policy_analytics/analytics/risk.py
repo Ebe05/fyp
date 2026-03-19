@@ -141,11 +141,12 @@ def calculate_high_risk(
     return mask.reindex(df.index).fillna(False).astype(bool)
 
 
-def simulate_combined_intervention(df, disease_name, target_col, high_risk_baseline, interventions):
+def simulate_combined_intervention(df, disease_name, target_col, high_risk_baseline, interventions, *, mode="both"):
     """
     Simulate combined policy intervention impact.
     interventions: dict of {intervention_type: reduction_pct}
-    Returns: dict with individual impacts and combined total
+    mode: "primary", "secondary", or "both" (default)
+    Returns: dict with individual impacts and combined total for each mode
     """
     # Create simulated dataframe with all interventions applied
     simulated_df = df.copy()
@@ -221,11 +222,18 @@ def simulate_combined_intervention(df, disease_name, target_col, high_risk_basel
             controlled_indices = simulated_df[high_bp_mask].sample(n=controlled_count, random_state=47).index
             simulated_df.loc[controlled_indices, 'HighBP'] = 0
 
-    # Calculate combined high-risk after all interventions
-    combined_high_risk = calculate_high_risk(simulated_df, disease_name, target_col).sum()
-    combined_reduction = high_risk_baseline - combined_high_risk
+    # Calculate combined high-risk after all interventions for both modes
+    secondary_after = calculate_high_risk(simulated_df, disease_name, target_col, mode="secondary").sum()
+    primary_after = calculate_high_risk(simulated_df, disease_name, target_col, mode="primary").sum()
+    
+    # Get baseline counts for both modes
+    secondary_baseline = calculate_high_risk(df, disease_name, target_col, mode="secondary").sum()
+    primary_baseline = calculate_high_risk(df, disease_name, target_col, mode="primary").sum()
+    
+    secondary_reduction = secondary_baseline - secondary_after
+    primary_reduction = primary_baseline - primary_after
 
-    # Calculate individual impacts (one intervention at a time)
+    # Calculate individual impacts (one intervention at a time) - for secondary mode (existing behavior)
     intervention_names = {
         "bmi": "BMI Reduction",
         "smoking": "Smoking Cessation",
@@ -253,8 +261,8 @@ def simulate_combined_intervention(df, disease_name, target_col, high_risk_basel
                 single_df.loc[treat_indices, 'BMI'] = (
                     single_df.loc[treat_indices, 'BMI'] * (1 - bmi_pct / 100)
                 )
-            single_high_risk = calculate_high_risk(single_df, disease_name, target_col).sum()
-            individual_impacts[intervention_names["bmi"]] = high_risk_baseline - single_high_risk
+            single_high_risk = calculate_high_risk(single_df, disease_name, target_col, mode="secondary").sum()
+            individual_impacts[intervention_names["bmi"]] = secondary_baseline - single_high_risk
             continue
         if pct <= 0:
             continue
@@ -299,13 +307,21 @@ def simulate_combined_intervention(df, disease_name, target_col, high_risk_basel
                 controlled_indices = single_df[high_bp_mask].sample(n=controlled_count, random_state=47).index
                 single_df.loc[controlled_indices, 'HighBP'] = 0
 
-        single_high_risk = calculate_high_risk(single_df, disease_name, target_col).sum()
-        individual_impacts[intervention_names[int_type]] = high_risk_baseline - single_high_risk
+        single_high_risk = calculate_high_risk(single_df, disease_name, target_col, mode="secondary").sum()
+        individual_impacts[intervention_names[int_type]] = secondary_baseline - single_high_risk
 
     return {
-        "combined_reduction": combined_reduction,
+        "secondary": {
+            "baseline": int(secondary_baseline),
+            "after": int(secondary_after),
+            "reduction": int(secondary_reduction),
+        },
+        "primary": {
+            "baseline": int(primary_baseline),
+            "after": int(primary_after),
+            "reduction": int(primary_reduction),
+        },
         "individual_impacts": individual_impacts,
-        "new_high_risk": combined_high_risk
     }
 
 

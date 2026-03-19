@@ -105,3 +105,5 @@ def format_rule_for_policy(antecedents, consequents):
         "intervention_list": list(interventions),  # Raw list for expander details
         "outcome": outcome_str
     }
+
+
