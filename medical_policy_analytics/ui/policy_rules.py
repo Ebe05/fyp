@@ -67,20 +67,6 @@ def render_policy_rules_tab(df):
                             st.metric("Lift", f"{row['lift']:.2f}x")
                             st.caption(f"Conf: {row['confidence']:.0%}")
                         st.caption(f"Support: {row['support']:.1%} of population")
-                        with st.expander("View Detailed Policy Recommendations"):
-                            if policy['intervention_list']:
-                                for lever in policy['intervention_list']:
-                                    if lever in POLICY_DETAILS:
-                                        detail = POLICY_DETAILS[lever]
-                                        st.markdown(f"**{detail['title']}**")
-                                        st.info(f"**Action:** {detail['action']}")
-                                        st.caption(f"**Expected Impact:** {detail['impact']}")
-                                        st.divider()
-                                    else:
-                                        st.write(f"**{lever}** - Policy recommendation under development.")
-                            else:
-                                st.write("General population intervention - no specific lever identified.")
-                            st.caption(f"Rule confidence: {row['confidence']:.0%}")
                         st.divider()
 
                 st.markdown("#### All Discovered Policy Rules")

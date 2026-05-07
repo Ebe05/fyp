@@ -96,36 +96,25 @@ def render_overview_tab(df):
     prevalence_df = pd.DataFrame(prevalence_data)
     prevalence_df = prevalence_df.sort_values("Prevalence (%)", ascending=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        fig_prev = px.bar(
-            prevalence_df,
-            x="Prevalence (%)",
-            y="Disease",
-            orientation='h',
-            title="Disease Prevalence in Population (%)",
-            color="Prevalence (%)",
-            color_continuous_scale="Reds",
-            text="Prevalence (%)"
-        )
-        fig_prev.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig_prev.update_layout(showlegend=False, height=400)
-        st.plotly_chart(fig_prev, use_container_width=True)
+    # Create combined label showing both percentage and absolute cases
+    prevalence_df['label'] = prevalence_df.apply(
+        lambda row: f"{row['Prevalence (%)']:.1f}% ({row['Cases']:,} cases)",
+        axis=1
+    )
 
-    with col2:
-        fig_cases = px.bar(
-            prevalence_df,
-            x="Cases",
-            y="Disease",
-            orientation='h',
-            title="Total Disease Cases in Population",
-            color="Cases",
-            color_continuous_scale="Blues",
-            text="Cases"
-        )
-        fig_cases.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
-        fig_cases.update_layout(showlegend=False, height=400)
-        st.plotly_chart(fig_cases, use_container_width=True)
+    fig_prev = px.bar(
+        prevalence_df,
+        x="Prevalence (%)",
+        y="Disease",
+        orientation='h',
+        title="Disease Prevalence in Population",
+        color="Prevalence (%)",
+        color_continuous_scale="Reds",
+        text="label"
+    )
+    fig_prev.update_traces(textposition='outside')
+    fig_prev.update_layout(showlegend=False, height=400)
+    st.plotly_chart(fig_prev, use_container_width=True)
 
     most_prevalent = prevalence_df.iloc[-1]
     st.info(f"**Key Finding:** {most_prevalent['Disease']} is the most prevalent condition, "
